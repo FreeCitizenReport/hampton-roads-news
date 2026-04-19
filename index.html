@@ -382,7 +382,8 @@ function normalizePeninsula(arr) {
         mugshotDate: r.mugshotDate || r.bookDate || '',
         courtHistory: [],
         county: r.address || 'VA Peninsula Regional Jail',
-        source: 'Peninsula',
+        firstSeenAt: r.firstSeenAt || '',
+      source: 'Peninsula',
         age: r.age || '',
         height: r.height || '',
         weight: r.weight || ''
@@ -408,25 +409,20 @@ function normalizePeninsula(arr) {
       // Sort: in-custody first (no releaseDate), then by bookDate descending
       RECORDS.forEach(function(r){ if (!r.mugshotDate && r.bookDate) r.mugshotDate = r.bookDate; });
   RECORDS.sort(function(a, b) {
-    // In-custody first (no releaseDate), released second
-    var aHeld = !a.releaseDate ? 0 : 1;
-    var bHeld = !b.releaseDate ? 0 : 1;
-    if (aHeld !== bHeld) return aHeld - bHeld;
-    // Has mugshot above no mugshot, then most recent bookDate first
-    var aMug = a.mugshot && a.mugshot.length > 100 ? 0 : 1;
-    var bMug = b.mugshot && b.mugshot.length > 100 ? 0 : 1;
-    if (aMug !== bMug) if (aMug !== bMug) return aMug - bMug; var aMugT = a.mugshotDate ? new Date(a.mugshotDate).getTime() : 0; var bMugT = b.mugshotDate ? new Date(b.mugshotDate).getTime() : 0; return bMugT - aMugT;
-    var pa = a.bookDate ? a.bookDate.split('/') : ['0','0','0'];
-    var pb = b.bookDate ? b.bookDate.split('/') : ['0','0','0'];
-    var da = new Date(pa[2], pa[0]-1, pa[1]);
-    var db = new Date(pb[2], pb[0]-1, pb[1]);
-    if (da > db) return -1;
-    if (da < db) return 1;
-    // Tiebreaker: most recent booking/scrape time first
-    var ma = a.mugshotDate ? new Date(a.mugshotDate).getTime() : 0;
-    var mb = b.mugshotDate ? new Date(b.mugshotDate).getTime() : 0;
-    return mb - ma;
-});
+      // In-custody first, then canonical firstSeenAt DESC, bookDate DESC, id DESC (SORT_RULE.md)
+      var aHeld = !a.releaseDate;
+      var bHeld = !b.releaseDate;
+      if (aHeld !== bHeld) return aHeld ? -1 : 1;
+      var fa = a.firstSeenAt || '';
+      var fb = b.firstSeenAt || '';
+      if (fa !== fb) return fb.localeCompare(fa);
+      var ba = a.bookDate || '';
+      var bb = b.bookDate || '';
+      if (ba !== bb) return bb.localeCompare(ba);
+      var ja = a.jacket || a.id || '';
+      var jb = b.jacket || b.id || '';
+      return jb.localeCompare(ja);
+    });
       bar.style.width = '100%';
       setTimeout(function() { bar.style.display = 'none'; }, 600);
       overlay.classList.add('hidden');
