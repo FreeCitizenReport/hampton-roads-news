@@ -50,6 +50,7 @@ select:focus, .filter-text:focus { outline: none; border-color: #1f6feb; }
 .badge-released { background: #238636; color: #fff; }
 .badge-source { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 3px; }
 .src-peninsula { background: #1f3d3d; color: #58d1c9; }
+.src-virginia-beach { background: #3d3316; color: #f0b56e; }
 
 
 
@@ -247,6 +248,7 @@ select:focus, .filter-text:focus { outline: none; border-color: #1f6feb; }
     <select id="f-source" onchange="applyFilters()">
       <option value="">All</option>
       <option value="Peninsula">VA Peninsula Regional</option>
+        <option value="Virginia Beach">Virginia Beach</option>
       
       
               
@@ -354,7 +356,7 @@ var mugshotURLs = {};
 var filteredIndices = [];
 var filteredPos = 0;
 var filtersOpen = false;
-var sourcesLoaded = {peninsula: false};
+var sourcesLoaded = {peninsula: false, virginiaBeach: false};
 
 /* ═══════════════════════════════════════
    DATA NORMALIZATION
@@ -391,6 +393,40 @@ function normalizePeninsula(arr) {
     });
   }
 
+  function normalizeVirginiaBeach(arr) {
+    return arr.map(function(r) {
+      var nm = r.name || '';
+      if (!nm && (r.lastName || r.firstName)) {
+        nm = (r.lastName || '');
+        if (r.firstName) nm += ', ' + r.firstName;
+        if (r.middleName) nm += ' ' + r.middleName;
+      }
+      return {
+        id: r.bookingNum || r.jacket || '',
+        name: nm,
+        dob: r.dob || '',
+        sex: r.sex || '',
+        race: r.race || '',
+        bookDate: r.commitmentDate || r.bookDate || '',
+        releaseDate: r.releaseDate || '',
+        charges: (r.charges || []).map(function(c) {
+          if (typeof c === 'string') return {description: c};
+          return c;
+        }),
+        bonds: r.bonds || [],
+        mugshot: r.mugshot || '',
+        mugshotDate: r.mugshotDate || r.commitmentDate || r.bookDate || '',
+        courtHistory: r.courtHistory || [],
+        county: r.county || 'Virginia Beach City Jail',
+        firstSeenAt: r.firstSeenAt || '',
+        source: 'Virginia Beach',
+        age: (r.demographics && r.demographics.age) || r.age || '',
+        height: (r.demographics && r.demographics.height) || r.height || '',
+        weight: (r.demographics && r.demographics.weight) || r.weight || ''
+      };
+    });
+  }
+
   /* ═══════════════════════════════════════
    DATA LOADING — fetch all 3 sources
 ═══════════════════════════════════════ */
@@ -400,7 +436,7 @@ function normalizePeninsula(arr) {
   var overlay = document.getElementById('loading-overlay');
   bar.style.width = '5%';
   var loaded = 0;
-  var total = 1;
+  var total = 2;
 
   function progress() {
     loaded++;
@@ -438,6 +474,13 @@ function normalizePeninsula(arr) {
     .then(function(data) { RECORDS = RECORDS.concat(normalizePeninsula(data)); sourcesLoaded.peninsula = true; })
     .catch(function(e) { console.error('Peninsula load failed:', e); })
     .then(progress);
+
+    // Virginia Beach
+    fetch('https://freecitizenreport.github.io/virginiabeach-viewer/data.json?v=' + Date.now())
+      .then(function(r) { return r.json(); })
+      .then(function(data) { RECORDS = RECORDS.concat(normalizeVirginiaBeach(data)); sourcesLoaded.virginiaBeach = true; })
+      .catch(function(e) { console.error('Virginia Beach load failed:', e); })
+      .then(progress);
 
   })();
 
@@ -548,8 +591,8 @@ function render() {
   img.src = mugshotURLs[mugKey] || rec.mugshot || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="210" height="210"><rect width="210" height="210" fill="%230d1117"/><text x="105" y="115" text-anchor="middle" fill="%238b949e" font-size="13">No Photo</text></svg>';
 
   // Source badge
-  var srcClass = 'src-peninsula';
-  var srcLabel = 'VA Peninsula Regional Jail';
+  var srcClass = sourceBadgeClass(rec.source);
+  var srcLabel = sourceLabel(rec.source);
 
   // ID info panel
   var idHTML = '<div class="id-row"><div class="id-label">Name</div><div class="id-value name">' + rec.name + '</div></div>';
@@ -670,10 +713,11 @@ document.addEventListener('click', function(e) { if (!searchInput.contains(e.tar
 var currentView = 'landing';
 
 function sourceLabel(src) {
-  var map = { 'Peninsula': 'VA Peninsula Regional Jail' };
+  var map = { 'Peninsula': 'VA Peninsula Regional Jail', 'Virginia Beach': 'Virginia Beach' };
   return map[src] || src;
 }
 function sourceBadgeClass(src) {
+  if (src === 'Virginia Beach') return 'src-virginia-beach';
   return 'src-peninsula';
 }
 
